@@ -1,0 +1,102 @@
+//pip install opencv-python numpy ultralytics pillow
+import cv2
+import torch
+import os
+import time
+import tkinter as tk
+from tkinter import Label
+from ultralytics import YOLO
+from PIL import Image, ImageTk
+
+# 📌 Load YOLOv8 Model
+model = YOLO("yolov8n.pt")
+
+# 📌 Folder to Save Plastic Images
+SAVE_FOLDER = r"C:\Users\tehnic\Desktop\plastic"
+if not os.path.exists(SAVE_FOLDER):
+    os.makedirs(SAVE_FOLDER)
+
+# 📌 Camera Settings (Adjust Based on Your Webcam)
+FOCAL_LENGTH = 615  # Approximate focal length (calibration recommended)
+KNOWN_WIDTH = 7.5  # Example: Known width of a bottle in cm
+
+# 📌 Initialize Webcam
+cap = cv2.VideoCapture(0)
+if not cap.isOpened():
+    print("Error: Could not open webcam.")
+    exit()
+
+# 📌 Create GUI Window
+root = tk.Tk()
+root.title("Plastic Detection")
+root.geometry("800x600")
+video_label = Label(root)
+video_label.pack()
+
+# 📌 Distance Calculation Function
+def calculate_distance(known_width, focal_length, pixel_width):
+    if pixel_width == 0:
+        return None  # Prevent division by zero
+    return (known_width * focal_length) / pixel_width  # Distance in cm
+
+# 📌 Video Stream Function
+def update_frame():
+    ret, frame = cap.read()
+    if not ret:
+        root.after(10, update_frame)
+        return
+
+    results = model(frame)
+    detected_objects = []
+
+    for result in results:
+        for box in result.boxes:
+            x1, y1, x2, y2 = map(int, box.xyxy[0])  # Get bounding box coordinates
+            label = result.names[int(box.cls[0])]  # Get object name
+            confidence = box.conf[0]  # Confidence score
+            pixel_width = x2 - x1  # Object width in pixels
+
+            # Detect plastic waste (bottle, cup, plastic bag)
+            if label in ["bottle", "cup", "plastic bag"]:
+                color = (0, 255, 0)  # Green for plastic
+                distance = calculate_distance(KNOWN_WIDTH, FOCAL_LENGTH, pixel_width)
+
+                # Draw bounding box and distance
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                text = f"{label} {confidence:.2f} | {distance:.2f} cm" if distance else f"{label} {confidence:.2f}"
+                cv2.putText(frame, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
+                # Save detected plastic image
+                timestamp = time.strftime("%Y%m%d-%H%M%S")
+                filename = f"{SAVE_FOLDER}\\{label}_{timestamp}.jpg"
+                cv2.imwrite(filename, frame)
+                detected_objects.append(f"{label} - {distance:.2f} cm")
+                print(f"✅ Saved: {filename}")
+
+    # Convert OpenCV image to display in Tkinter
+    frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    img = Image.fromarray(frame)
+    imgtk = ImageTk.PhotoImage(image=img)
+    video_label.imgtk = imgtk
+    video_label.configure(image=imgtk)
+
+    # Update GUI with detected objects
+    detected_text.set("\n".join(detected_objects) if detected_objects else "No Plastic Detected")
+    
+    # Refresh the frame
+    root.after(10, update_frame)
+
+# 📌 GUI Elements
+detected_text = tk.StringVar()
+detected_label = Label(root, textvariable=detected_text, font=("Arial", 12), fg="green")
+detected_label.pack()
+
+# 📌 Start Video Stream
+update_frame()
+
+# 📌 Run GUI
+root.mainloop()
+
+# 📌 Release Camera When Closed
+cap.release()
+cv2.destroyAllWindows()
