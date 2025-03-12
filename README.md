@@ -98,12 +98,3 @@ to your preferred location.
 ### **3️⃣ Add More Plastic Items**
 - Train a **custom YOLOv8 model** with more plastic categories.  
 - Use **Google Colab** or **LabelImg** for dataset preparation.  
-
----
-
-## 🔥 Next Steps  
-🔹 **Want a custom AI model for better detection?**  
-🔹 **Need to upload detected images to cloud storage (Google Drive, Firebase, AWS)?**  
-🔹 **Looking to integrate this with an ESP32-CAM for drones?**  
-
-Let me know what’s next! 🚀♻️  
